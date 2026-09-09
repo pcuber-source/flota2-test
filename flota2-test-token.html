@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Test tokenu — Flota 2.0</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#e30613">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <style>
   :root{color-scheme:light dark}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f3f3f0;color:#1b1a16;padding:1.2rem;line-height:1.5}
@@ -47,6 +51,30 @@
   const actions = document.getElementById('actions');
   const log = document.getElementById('log');
 
+  // Chrome (desktop + Android) fires this when the page satisfies its
+  // installability criteria (valid manifest with icons, standalone display, HTTPS).
+  // Safari on iOS never fires it — that platform uses "Dodaj do ekranu głównego" instead.
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    renderInstallButtonIfPossible();
+  });
+
+  function renderInstallButtonIfPossible(){
+    if (!deferredInstallPrompt || document.getElementById('installBtn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'installBtn';
+    btn.textContent = 'Zainstaluj jako aplikację';
+    btn.onclick = async function(){
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      btn.remove();
+    };
+    actions.appendChild(btn);
+  }
+
   function isStandalone(){
     return window.navigator.standalone === true ||
            window.matchMedia('(display-mode: standalone)').matches;
@@ -78,12 +106,15 @@
   if (!standalone) {
     mainCard.className = 'card status-info';
     mainCard.innerHTML = '<span class="lbl">Co teraz zrobić</span>' +
+      '<p style="font-size:.85rem;margin:0 0 .7rem"><strong>iPhone (Safari):</strong></p>' +
       '<p class="steps"><ol>' +
-      '<li>Stuknij ikonę <strong>Udostępnij</strong> na dole ekranu Safari.</li>' +
+      '<li>Stuknij ikonę <strong>Udostępnij</strong> na dole ekranu.</li>' +
       '<li>Wybierz <strong>„Dodaj do ekranu głównego"</strong>.</li>' +
       '<li>Otwórz nowo dodaną ikonę z ekranu głównego (nie z Safari).</li>' +
       '</ol></p>' +
-      '<p style="font-size:.85rem;margin:0">Dopóki widzisz „NIE" u góry, strona celowo nie zapisuje żadnego tokenu — to dokładnie to samo zachowanie, co w kroku 3 właściwego procesu rejestracji.</p>';
+      '<p style="font-size:.85rem;margin:.8rem 0 0"><strong>Android / Chrome / desktop:</strong> jeśli poniżej pojawi się przycisk „Zainstaluj jako aplikację" — użyj go. Jeśli nie, użyj menu przeglądarki (⋮) → „Zainstaluj aplikację" / „Otwórz jako okno".</p>' +
+      '<p style="font-size:.85rem;margin:.8rem 0 0">Dopóki widzisz „NIE" u góry, strona celowo nie zapisuje żadnego tokenu — to dokładnie to samo zachowanie, co w kroku 3 właściwego procesu rejestracji.</p>';
+    renderInstallButtonIfPossible();
     return;
   }
 
